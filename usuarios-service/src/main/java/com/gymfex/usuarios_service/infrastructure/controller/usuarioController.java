@@ -25,12 +25,17 @@ public class usuarioController {
     public usuarioController(usuarioService usuarioService) {
         this.usuarioService = usuarioService;
     }
-
-    // 1) Obtener todos los usuarios (GET /usuarios)
-    @GetMapping
-    public List<UsuariosDto> getUsuarios() {
-        return usuarioService.getUsuarios();
+    // 1) Obtener los usuarios 
+    @GetMapping("/administradores")
+    public List<UsuariosDto> getAdministradores() {
+        return usuarioService.getAdministradores();
     }
+
+    @GetMapping("/socios")
+    public List<UsuariosDto> getSocios() {
+        return usuarioService.getSocios();
+    }
+
 
     // 2) Obtener usuario por ID (GET /usuarios/{id})
     @GetMapping("/{id}")
@@ -54,14 +59,14 @@ public class usuarioController {
     // 4) Crear un nuevo usuario (POST /usuarios)
    @PostMapping("/socio")
    public ResponseEntity<String> crearSocio(@Valid @RequestBody CreateSocioDto dto) {
-        usuarioService.createSocio(dto);
+        usuarioService.createSocioAndReturnEntity(dto);
         return ResponseEntity.status(201).body("Socio creado correctamente");
     }
 
     // 5) Crear un nuevo administrador (POST /usuarios/admin)
     @PostMapping("/admin")
     public ResponseEntity<String> crearAdmin(@Valid @RequestBody CreateAdminDto dto) {
-        usuarioService.createAdmin(dto);
+        usuarioService.createAdminAndReturnEntity(dto);
         return ResponseEntity.status(201).body("Administrador creado correctamente");
     }
     

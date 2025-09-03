@@ -14,11 +14,15 @@ public interface usuarioService {
     List<UsuariosDto> getUsuarios();
     Optional<UsuariosDto> findById(Long id);
     List<UsuariosDto> buscarPorNombre(String nombre, int page, int size);
-    void createSocio(CreateSocioDto dto);
-    void createAdmin(CreateAdminDto dto);
+    Usuario createSocioAndReturnEntity(CreateSocioDto dto);
+    Usuario createAdminAndReturnEntity(CreateAdminDto dto);
     Optional<Usuario> findEntityById(Long id);
     void updateAdmin(Usuario usuario, UsuarioUpdateDto dto);
     void updateSocio(Usuario usuario, UsuarioUpdateDto dto);
     void deleteUsuario(Long id);
-
+    List<UsuariosDto> getAdministradores();
+    List<UsuariosDto> getSocios();
+    List<UsuariosDto> buscarPorRole(String role, int page, int size);
+    Usuario findEntityByEmail(String email);
+    boolean checkPassword(Usuario usuario, String rawPassword);
 }

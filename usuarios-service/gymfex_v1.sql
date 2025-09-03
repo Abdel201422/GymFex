@@ -4,7 +4,7 @@ CREATE TABLE usuario (
   apellidos        VARCHAR(150)    NOT NULL,
   email            VARCHAR(255)    NOT NULL UNIQUE,
   telefono         VARCHAR(20),
-  role             VARCHAR(50)     NOT NULL CHECK (role IN ('administrador','entrenador','socio')),
+  role             VARCHAR(50)     NOT NULL CHECK (role IN ('ADMIN', 'SOCIO', 'ENTRENADOR')),
   
  
   tipo_membresia   VARCHAR(50)     NOT NULL CHECK (tipo_membresia IN ('mensual','trimestral','anual','clases_puntuales')),

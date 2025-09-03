@@ -17,6 +17,8 @@ import com.gymfex.usuarios_service.application.dto.request.CreateSocioDto;
 import com.gymfex.usuarios_service.application.dto.request.UsuarioUpdateDto;
 import com.gymfex.usuarios_service.application.dto.request.CreateAdminDto;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 
 
 import java.util.List;
@@ -27,10 +29,12 @@ public class usuarioServiceImpl implements usuarioService {
 
     private final usuarioRepository usuarioRepository;
     private final UsuarioMapper mapper;
+    private final PasswordEncoder passwordEncoder;
 
-    public usuarioServiceImpl(usuarioRepository usuarioRepository, UsuarioMapper mapper) {
+    public usuarioServiceImpl(usuarioRepository usuarioRepository, UsuarioMapper mapper, PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
         this.mapper = mapper;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -69,18 +73,31 @@ public class usuarioServiceImpl implements usuarioService {
     }
   
     @Override
-    public void createSocio(CreateSocioDto dto) {
+    public Usuario createSocioAndReturnEntity(CreateSocioDto dto) {
+        if (usuarioRepository.existsByEmail(dto.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email ya registrado");
+        }
         Usuario usuario = mapper.toEntity(dto);
-        usuario.setRole("socio"); // Asignar rol por defecto
+        usuario.setRole("SOCIO");
         usuarioRepository.save(usuario);
+        return usuario;
     }
 
     @Override
-    public void createAdmin(CreateAdminDto dto) {
+    public Usuario createAdminAndReturnEntity(CreateAdminDto dto) {
+        if (usuarioRepository.existsByEmail(dto.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email ya registrado");
+        }
         Usuario usuario = mapper.toEntity(dto);
-        usuario.setRole("admin"); // Asignar rol de administrador
+        usuario.setRole("ADMIN");
+        if (dto.getPassword() == null || dto.getPassword().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password requerida");
+        }
+        usuario.setPassword(passwordEncoder.encode(dto.getPassword()));
         usuarioRepository.save(usuario);
-    }
+        return usuario;
+}
+
 
     @Override 
     public Optional<Usuario> findEntityById(Long id) {
@@ -88,28 +105,46 @@ public class usuarioServiceImpl implements usuarioService {
     }
 
     @Override
+    public Usuario findEntityByEmail(String email) {
+        return usuarioRepository.findByEmail(email).orElse(null);
+    }
+
+    @Override
+    @Transactional
     public void updateAdmin(Usuario usuario, UsuarioUpdateDto dto) {
-        // Actualizar campos específicos del administrador
-        usuario.setNombre(dto.getNombre());
-        usuario.setApellidos(dto.getApellidos());
-        usuario.setEmail(dto.getEmail());
-        usuario.setTelefono(dto.getTelefono());
+        if (dto.getNombre() != null && !dto.getNombre().isBlank()) {
+            usuario.setNombre(dto.getNombre().trim());
+        }
+        if (dto.getApellidos() != null && !dto.getApellidos().isBlank()) {
+            usuario.setApellidos(dto.getApellidos().trim());
+        }
+        if (dto.getEmail() != null && !dto.getEmail().isBlank()) {
+            String email = dto.getEmail().trim().toLowerCase();
+            // Comprueba que ningún otro usuario tenga ese email
+            if (usuarioRepository.existsByEmailAndIdNot(email, usuario.getId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email ya registrado");
+            }
+            usuario.setEmail(email);
+        }
+        if (dto.getTelefono() != null && !dto.getTelefono().isBlank()) {
+            usuario.setTelefono(dto.getTelefono().trim());
+        }
         if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
-            usuario.setPassword(dto.getPassword());
+            usuario.setPassword(passwordEncoder.encode(dto.getPassword()));
         }
         usuarioRepository.save(usuario);
     }
 
+
     @Override
     public void updateSocio(Usuario usuario, UsuarioUpdateDto dto) {
-        // Actualizar campos específicos del socio
-        usuario.setNombre(dto.getNombre());
-        usuario.setApellidos(dto.getApellidos());
-        usuario.setEmail(dto.getEmail());
-        usuario.setTelefono(dto.getTelefono());
-        usuario.setTipoMembresia(dto.getTipoMembresia());
-        usuario.setInicioMembresia(dto.getInicioMembresia());
-        usuario.setFinMembresia(dto.getFinMembresia());
+        if (dto.getNombre() != null) usuario.setNombre(dto.getNombre());
+        if (dto.getApellidos() != null) usuario.setApellidos(dto.getApellidos());
+        if (dto.getEmail() != null) usuario.setEmail(dto.getEmail());
+        if (dto.getTelefono() != null) usuario.setTelefono(dto.getTelefono());
+        if (dto.getTipoMembresia() != null) usuario.setTipoMembresia(dto.getTipoMembresia());
+        if (dto.getInicioMembresia() != null) usuario.setInicioMembresia(dto.getInicioMembresia());
+        if (dto.getFinMembresia() != null) usuario.setFinMembresia(dto.getFinMembresia());
         usuarioRepository.save(usuario);
     }
 
@@ -121,4 +156,30 @@ public class usuarioServiceImpl implements usuarioService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado");
         }
     }
+
+    @Override
+    public List<UsuariosDto> getAdministradores() {
+        List<Usuario> admins = usuarioRepository.findAllByRoleIgnoreCase("ADMIN");
+        return admins.stream().map(mapper::toDto).toList();
+    }
+
+    @Override
+    public List<UsuariosDto> getSocios() {
+        List<Usuario> socios = usuarioRepository.findAllByRoleIgnoreCase("SOCIO");
+        return socios.stream().map(mapper::toDto).toList();
+    }
+
+    @Override
+    public List<UsuariosDto> buscarPorRole(String role, int page, int size) {
+        PageRequest pageable = PageRequest.of(page, size);
+        Page<Usuario> pageRes = usuarioRepository.findAllByRoleIgnoreCase(role, pageable);
+        return pageRes.getContent().stream().map(mapper::toDto).toList();
+    }
+
+    @Override
+    public boolean checkPassword(Usuario usuario, String rawPassword) {
+        return passwordEncoder.matches(rawPassword, usuario.getPassword());
+    }
+
+    
 }
