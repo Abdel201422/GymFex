@@ -2,10 +2,13 @@ package com.gymfex.usuarios_service.application.service;
 
 import com.gymfex.usuarios_service.application.dto.response.UsuariosDto;
 import com.gymfex.usuarios_service.domain.Usuario;
+import com.gymfex.usuarios_service.infrastructure.events.SocioEvent;
+import com.gymfex.usuarios_service.infrastructure.events.SocioPayload;
 import com.gymfex.usuarios_service.infrastructure.repository.usuarioRepository;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -21,6 +24,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
 
+
 import java.util.List;
 import java.util.Optional;
 
@@ -30,11 +34,13 @@ public class usuarioServiceImpl implements usuarioService {
     private final usuarioRepository usuarioRepository;
     private final UsuarioMapper mapper;
     private final PasswordEncoder passwordEncoder;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
-    public usuarioServiceImpl(usuarioRepository usuarioRepository, UsuarioMapper mapper, PasswordEncoder passwordEncoder) {
+    public usuarioServiceImpl(usuarioRepository usuarioRepository, UsuarioMapper mapper, PasswordEncoder passwordEncoder, KafkaTemplate<String, Object> kafkaTemplate) {
         this.usuarioRepository = usuarioRepository;
         this.mapper = mapper;
         this.passwordEncoder = passwordEncoder;
+        this.kafkaTemplate = kafkaTemplate;
     }
 
     @Override
@@ -80,6 +86,24 @@ public class usuarioServiceImpl implements usuarioService {
         Usuario usuario = mapper.toEntity(dto);
         usuario.setRole("SOCIO");
         usuarioRepository.save(usuario);
+        // construir el evento y enviarlo a Kafka indicando que se ha creado un nuevo socio
+        // 2. construir evento
+
+        SocioPayload payload = new SocioPayload(
+            usuario.getId(), 
+            usuario.getEmail(), 
+            usuario.getNombre(), 
+            usuario.getApellidos(),
+            usuario.getTipoMembresia(),
+            usuario.getFinMembresia());
+            
+        SocioEvent evt = new SocioEvent();
+        evt.setEventType("SOCIO_CREATED");
+        evt.setSocioPayload(payload);
+
+        // 3. publicar (topic)
+        kafkaTemplate.send("usuarios.socio.created", usuario.getId().toString(), evt);
+
         return usuario;
     }
 

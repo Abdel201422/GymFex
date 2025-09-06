@@ -10,6 +10,6 @@ public class SocioEvent {
     private String eventType; // SOCIO_CREATED, SOCIO_UPDATED, MEMBERSHIP_RENEWED, SOCIO_DELETED
     private Instant occurredAt = Instant.now();
     private String source = "usuarios-service";
-    private Object payload; 
+    private Object SocioPayload; 
     
 }
