@@ -1,5 +1,7 @@
 package com.gymfex.notificaciones_service.infrastructure.repository;
 
-public class processedEventRepository {
-    
+
+public interface processedEventRepository {
+    boolean existsByEventId(String eventId);
+    void saveProcessedEvent(String eventId);
 }

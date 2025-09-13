@@ -13,12 +13,12 @@ public class UsuariosServiceApplication {
 		SpringApplication.run(UsuariosServiceApplication.class, args);
 	}
 
-	@Bean
+	/* @Bean
 	CommandLineRunner commandLineRunner(KafkaTemplate<String, String> kafkaTemplate) {
 		return args -> {
 			
 			kafkaTemplate.send("usuarios-topic", "Hello, Kafka! oooo");
 		};
-	}
+	}*/
 
 }

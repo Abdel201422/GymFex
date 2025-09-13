@@ -30,7 +30,7 @@ protected void doFilterInternal(HttpServletRequest request,
                                 HttpServletResponse response,
                                 FilterChain filterChain) throws ServletException, IOException {
 
-    logger.debug("[JWT FILTER] Entrando al filtro para URI: " + request.getRequestURI()); // <-- agregado
+    logger.debug("[JWT FILTER] Entrando al filtro para URI: " + request.getRequestURI());
 
     final String authHeader = request.getHeader("Authorization");
 
@@ -54,7 +54,10 @@ protected void doFilterInternal(HttpServletRequest request,
 
     if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-        logger.debug("[JWT FILTER] UserDetails cargado: " + userDetails.getUsername());
+
+        // <-- línea añadida: muestra username y authorities
+        logger.debug("[JWT FILTER] UserDetails cargado: " + userDetails.getUsername()
+                     + " authorities=" + userDetails.getAuthorities());
 
         UsernamePasswordAuthenticationToken authToken =
                 new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
@@ -65,5 +68,6 @@ protected void doFilterInternal(HttpServletRequest request,
 
     filterChain.doFilter(request, response);
 }
+
 
 }

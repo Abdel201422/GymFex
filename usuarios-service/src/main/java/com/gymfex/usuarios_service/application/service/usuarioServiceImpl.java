@@ -23,8 +23,6 @@ import com.gymfex.usuarios_service.application.dto.request.CreateAdminDto;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
-
-
 import java.util.List;
 import java.util.Optional;
 
@@ -34,9 +32,12 @@ public class usuarioServiceImpl implements usuarioService {
     private final usuarioRepository usuarioRepository;
     private final UsuarioMapper mapper;
     private final PasswordEncoder passwordEncoder;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final KafkaTemplate<String, SocioEvent> kafkaTemplate; // <- cambiado a SocioEvent
 
-    public usuarioServiceImpl(usuarioRepository usuarioRepository, UsuarioMapper mapper, PasswordEncoder passwordEncoder, KafkaTemplate<String, Object> kafkaTemplate) {
+    public usuarioServiceImpl(usuarioRepository usuarioRepository,
+                              UsuarioMapper mapper,
+                              PasswordEncoder passwordEncoder,
+                              KafkaTemplate<String, SocioEvent> kafkaTemplate) { // <- tipo cambiado aquí
         this.usuarioRepository = usuarioRepository;
         this.mapper = mapper;
         this.passwordEncoder = passwordEncoder;
@@ -59,25 +60,22 @@ public class usuarioServiceImpl implements usuarioService {
 
     @Override
     public List<UsuariosDto> buscarPorNombre(String nombre, int page, int size) {
-        // Crea objeto de paginación
         PageRequest pageable = PageRequest.of(page, size);
-        
+
         Page<Usuario> usuariosPage;
-        
+
         if (nombre == null || nombre.isBlank()) {
-            // Si no hay nombre, obtener todos paginados
             usuariosPage = usuarioRepository.findAll(pageable);
         } else {
-            // Búsqueda con filtro
             usuariosPage = usuarioRepository.buscarPorNombre(nombre, pageable);
         }
-        
+
         return usuariosPage.getContent()
-                        .stream()
-                        .map(mapper::toDto)
-                        .toList();
+                .stream()
+                .map(mapper::toDto)
+                .toList();
     }
-  
+
     @Override
     public Usuario createSocioAndReturnEntity(CreateSocioDto dto) {
         if (usuarioRepository.existsByEmail(dto.getEmail())) {
@@ -85,26 +83,27 @@ public class usuarioServiceImpl implements usuarioService {
         }
         Usuario usuario = mapper.toEntity(dto);
         usuario.setRole("SOCIO");
-        usuarioRepository.save(usuario);
-        // construir el evento y enviarlo a Kafka indicando que se ha creado un nuevo socio
-        // 2. construir evento
+        // guardamos y usamos la entidad resultante (para asegurar id generado)
+        Usuario savedUsuario = usuarioRepository.save(usuario);
 
+        // construir el payload y el evento
         SocioPayload payload = new SocioPayload(
-            usuario.getId(), 
-            usuario.getEmail(), 
-            usuario.getNombre(), 
-            usuario.getApellidos(),
-            usuario.getTipoMembresia(),
-            usuario.getFinMembresia());
-            
+            savedUsuario.getId(),
+            savedUsuario.getEmail(),
+            savedUsuario.getNombre(),
+            savedUsuario.getApellidos(),
+            savedUsuario.getTipoMembresia(),
+            savedUsuario.getFinMembresia()
+        );
+
         SocioEvent evt = new SocioEvent();
         evt.setEventType("SOCIO_CREATED");
         evt.setSocioPayload(payload);
 
-        // 3. publicar (topic)
-        kafkaTemplate.send("usuarios.socio.created", usuario.getId().toString(), evt);
+        // publicar (topic) usando KafkaTemplate<String, SocioEvent>
+        kafkaTemplate.send("usuarios.socio.created", savedUsuario.getId().toString(), evt);
 
-        return usuario;
+        return savedUsuario;
     }
 
     @Override
@@ -120,17 +119,11 @@ public class usuarioServiceImpl implements usuarioService {
         usuario.setPassword(passwordEncoder.encode(dto.getPassword()));
         usuarioRepository.save(usuario);
         return usuario;
-}
-
+    }
 
     @Override 
     public Optional<Usuario> findEntityById(Long id) {
         return usuarioRepository.findById(id);
-    }
-
-    @Override
-    public Usuario findEntityByEmail(String email) {
-        return usuarioRepository.findByEmail(email).orElse(null);
     }
 
     @Override
@@ -144,7 +137,6 @@ public class usuarioServiceImpl implements usuarioService {
         }
         if (dto.getEmail() != null && !dto.getEmail().isBlank()) {
             String email = dto.getEmail().trim().toLowerCase();
-            // Comprueba que ningún otro usuario tenga ese email
             if (usuarioRepository.existsByEmailAndIdNot(email, usuario.getId())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email ya registrado");
             }
@@ -158,7 +150,6 @@ public class usuarioServiceImpl implements usuarioService {
         }
         usuarioRepository.save(usuario);
     }
-
 
     @Override
     public void updateSocio(Usuario usuario, UsuarioUpdateDto dto) {
@@ -204,6 +195,8 @@ public class usuarioServiceImpl implements usuarioService {
     public boolean checkPassword(Usuario usuario, String rawPassword) {
         return passwordEncoder.matches(rawPassword, usuario.getPassword());
     }
-
-    
+    @Override
+    public Usuario findEntityByEmail(String email) {
+        return usuarioRepository.findByEmail(email).orElse(null);
+    }
 }

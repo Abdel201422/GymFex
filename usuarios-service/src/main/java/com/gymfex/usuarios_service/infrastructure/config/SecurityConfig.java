@@ -24,12 +24,16 @@ public class SecurityConfig {
         http
             .cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.disable())
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // <-- agregado
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/**", "/actuator/**").permitAll()
+                .requestMatchers("/auth/**", "/actuator/**", "/error").permitAll()
+                // 👇 AGREGA ESTAS REGLAS ESPECÍFICAS
+                .requestMatchers("/usuarios/socio").hasRole("ADMIN")
+                .requestMatchers("/usuarios/admin").hasRole("ADMIN")
+                .requestMatchers("/usuarios/**").authenticated()
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class); // <-- ya estaba, pero lo confirmamos
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
