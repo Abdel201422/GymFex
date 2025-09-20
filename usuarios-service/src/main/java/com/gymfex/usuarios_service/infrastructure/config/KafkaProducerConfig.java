@@ -1,6 +1,6 @@
 package com.gymfex.usuarios_service.infrastructure.config;
 
-import com.gymfex.usuarios_service.infrastructure.events.SocioEvent;
+import com.gymfex.common.events.SocioEvent;  
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;

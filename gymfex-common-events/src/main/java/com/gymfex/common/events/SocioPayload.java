@@ -1,4 +1,4 @@
-package com.gymfex.usuarios_service.infrastructure.events;
+package com.gymfex.common.events;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

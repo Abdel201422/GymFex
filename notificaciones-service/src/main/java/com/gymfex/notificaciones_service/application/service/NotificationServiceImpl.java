@@ -1,7 +1,7 @@
 package com.gymfex.notificaciones_service.application.service;
 
-import com.gymfex.notificaciones_service.infrastructure.events.SocioEvent;
-import com.gymfex.notificaciones_service.infrastructure.events.SocioPayload;
+import com.gymfex.common.events.SocioEvent;
+import com.gymfex.common.events.SocioPayload;
 import com.gymfex.notificaciones_service.infrastructure.adapter.outbound.persistence.JpaProcessedEventRepository;
 import com.gymfex.notificaciones_service.infrastructure.adapter.outbound.email.JavaMailEmailSender;
 import org.slf4j.Logger;
@@ -81,8 +81,8 @@ public class NotificationServiceImpl implements NotificationService {
         String body = "Hola " + safe(p.getNombre()) + " " + safe(p.getApellidos())
                 + ",\nTu membresía finaliza: " + safeString(p.getFinMembresia());
         emailSender.sendEmail(p.getEmail(), subject, body);
-        emailSender.sendEmail("admins@gymfex.com", "Nuevo socio: " + p.getEmail(),
-                "Se creó un nuevo socio: " + safe(p.getNombre()) + " " + safe(p.getApellidos()));
+        /*emailSender.sendEmail("admins@gymfex.com", "Nuevo socio: " + p.getEmail(),
+                "Se creó un nuevo socio: " + safe(p.getNombre()) + " " + safe(p.getApellidos()));*/
     }
 
     private void sendUpdated(SocioPayload p) {

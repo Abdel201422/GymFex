@@ -1,4 +1,4 @@
-package com.gymfex.notificaciones_service.infrastructure.events;
+package com.gymfex.common.events;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
@@ -21,6 +21,12 @@ public class SocioEvent {
     private SocioPayload payload;
 
     public static SocioEvent of(String eventType, SocioPayload payload) {
-        return new SocioEvent(UUID.randomUUID().toString(), eventType, Instant.now(), "usuarios-service", payload);
+        return new SocioEvent(
+            UUID.randomUUID().toString(),
+            eventType,
+            Instant.now(),
+            "usuarios-service",
+            payload
+        );
     }
 }

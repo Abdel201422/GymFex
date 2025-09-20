@@ -2,7 +2,7 @@ package com.gymfex.notificaciones_service.infrastructure.adapter.inbound;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gymfex.notificaciones_service.application.service.NotificationService;
-import com.gymfex.notificaciones_service.infrastructure.events.SocioEvent;
+import com.gymfex.common.events.SocioEvent;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 

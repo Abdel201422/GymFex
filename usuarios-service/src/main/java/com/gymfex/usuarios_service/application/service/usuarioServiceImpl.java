@@ -2,8 +2,8 @@ package com.gymfex.usuarios_service.application.service;
 
 import com.gymfex.usuarios_service.application.dto.response.UsuariosDto;
 import com.gymfex.usuarios_service.domain.Usuario;
-import com.gymfex.usuarios_service.infrastructure.events.SocioEvent;
-import com.gymfex.usuarios_service.infrastructure.events.SocioPayload;
+import com.gymfex.common.events.SocioEvent;
+import com.gymfex.common.events.SocioPayload;
 import com.gymfex.usuarios_service.infrastructure.repository.usuarioRepository;
 
 import org.springframework.data.domain.PageRequest;
@@ -26,6 +26,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Service
 public class usuarioServiceImpl implements usuarioService {
 
@@ -33,6 +37,7 @@ public class usuarioServiceImpl implements usuarioService {
     private final UsuarioMapper mapper;
     private final PasswordEncoder passwordEncoder;
     private final KafkaTemplate<String, SocioEvent> kafkaTemplate; // <- cambiado a SocioEvent
+   private static final Logger logger = LoggerFactory.getLogger(usuarioServiceImpl.class);
 
     public usuarioServiceImpl(usuarioRepository usuarioRepository,
                               UsuarioMapper mapper,
@@ -77,34 +82,38 @@ public class usuarioServiceImpl implements usuarioService {
     }
 
     @Override
-    public Usuario createSocioAndReturnEntity(CreateSocioDto dto) {
-        if (usuarioRepository.existsByEmail(dto.getEmail())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email ya registrado");
-        }
-        Usuario usuario = mapper.toEntity(dto);
-        usuario.setRole("SOCIO");
-        // guardamos y usamos la entidad resultante (para asegurar id generado)
-        Usuario savedUsuario = usuarioRepository.save(usuario);
-
-        // construir el payload y el evento
-        SocioPayload payload = new SocioPayload(
-            savedUsuario.getId(),
-            savedUsuario.getEmail(),
-            savedUsuario.getNombre(),
-            savedUsuario.getApellidos(),
-            savedUsuario.getTipoMembresia(),
-            savedUsuario.getFinMembresia()
-        );
-
-        SocioEvent evt = new SocioEvent();
-        evt.setEventType("SOCIO_CREATED");
-        evt.setSocioPayload(payload);
-
-        // publicar (topic) usando KafkaTemplate<String, SocioEvent>
-        kafkaTemplate.send("usuarios.socio.created", savedUsuario.getId().toString(), evt);
-
-        return savedUsuario;
+public Usuario createSocioAndReturnEntity(CreateSocioDto dto) {
+    logger.debug("createSocioAndReturnEntity dto : {}", dto);
+    if (usuarioRepository.existsByEmail(dto.getEmail())) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email ya registrado");
     }
+    Usuario usuario = mapper.toEntity(dto);
+    usuario.setRole("SOCIO");
+    // guardamos y usamos la entidad resultante (para asegurar id generado)
+    Usuario savedUsuario = usuarioRepository.save(usuario);
+
+    // construir el payload
+    SocioPayload payload = new SocioPayload(
+        savedUsuario.getId(),
+        savedUsuario.getEmail(),
+        savedUsuario.getNombre(),
+        savedUsuario.getApellidos(),
+        savedUsuario.getTipoMembresia(),
+        savedUsuario.getFinMembresia()
+    );
+
+    // usar el factory para generar eventId, occurredAt y source automáticamente
+    SocioEvent evt = SocioEvent.of("SOCIO_CREATED", payload);
+
+    logger.debug("Publicando evento SocioEvent eventId={} eventType={} for usuarioId={}",
+                 evt.getEventId(), evt.getEventType(), savedUsuario.getId());
+
+    // publicar topic y loguear resultado del envío
+    kafkaTemplate.send("usuarios.socio.created", savedUsuario.getId().toString(), evt);
+    
+    return savedUsuario;
+}
+
 
     @Override
     public Usuario createAdminAndReturnEntity(CreateAdminDto dto) {

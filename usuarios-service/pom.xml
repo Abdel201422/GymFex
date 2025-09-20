@@ -127,6 +127,13 @@
       <scope>runtime</scope>
     </dependency>
 
+    <dependency>
+      <groupId>com.gymfex</groupId>
+      <artifactId>common</artifactId>
+      <version>1.0.0</version>
+    </dependency>
+
+
 
   </dependencies>
 

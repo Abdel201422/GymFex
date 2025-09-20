@@ -59,6 +59,7 @@ public class usuarioController {
     // 4) Crear un nuevo usuario (POST /usuarios)
    @PostMapping("/socio")
    public ResponseEntity<String> crearSocio(@Valid @RequestBody CreateSocioDto dto) {
+        
         usuarioService.createSocioAndReturnEntity(dto);
         return ResponseEntity.status(201).body("Socio creado correctamente");
     }
