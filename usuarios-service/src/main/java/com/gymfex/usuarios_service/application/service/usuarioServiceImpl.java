@@ -17,7 +17,8 @@ import com.gymfex.usuarios_service.application.mapper.UsuarioMapper;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
 import com.gymfex.usuarios_service.application.dto.request.CreateSocioDto;
-import com.gymfex.usuarios_service.application.dto.request.UsuarioUpdateDto;
+import com.gymfex.usuarios_service.application.dto.request.UpdateAdminDto;
+import com.gymfex.usuarios_service.application.dto.request.UpdateSocioDto;
 import com.gymfex.usuarios_service.application.dto.request.CreateAdminDto;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -36,13 +37,13 @@ public class usuarioServiceImpl implements usuarioService {
     private final usuarioRepository usuarioRepository;
     private final UsuarioMapper mapper;
     private final PasswordEncoder passwordEncoder;
-    private final KafkaTemplate<String, SocioEvent> kafkaTemplate; // <- cambiado a SocioEvent
+    private final KafkaTemplate<String, SocioEvent> kafkaTemplate;
    private static final Logger logger = LoggerFactory.getLogger(usuarioServiceImpl.class);
 
     public usuarioServiceImpl(usuarioRepository usuarioRepository,
                               UsuarioMapper mapper,
                               PasswordEncoder passwordEncoder,
-                              KafkaTemplate<String, SocioEvent> kafkaTemplate) { // <- tipo cambiado aquí
+                              KafkaTemplate<String, SocioEvent> kafkaTemplate) { 
         this.usuarioRepository = usuarioRepository;
         this.mapper = mapper;
         this.passwordEncoder = passwordEncoder;
@@ -89,7 +90,7 @@ public Usuario createSocioAndReturnEntity(CreateSocioDto dto) {
     }
     Usuario usuario = mapper.toEntity(dto);
     usuario.setRole("SOCIO");
-    // guardamos y usamos la entidad resultante (para asegurar id generado)
+    // guardamos y usamos la entidad resultante
     Usuario savedUsuario = usuarioRepository.save(usuario);
 
     // construir el payload
@@ -126,8 +127,23 @@ public Usuario createSocioAndReturnEntity(CreateSocioDto dto) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password requerida");
         }
         usuario.setPassword(passwordEncoder.encode(dto.getPassword()));
-        usuarioRepository.save(usuario);
-        return usuario;
+        Usuario savedUsuario = usuarioRepository.save(usuario);
+
+        // Construir el payload y evento
+        SocioPayload payload = new SocioPayload(
+            savedUsuario.getId(),
+            savedUsuario.getEmail(),
+            savedUsuario.getNombre(),
+            savedUsuario.getApellidos(),
+            savedUsuario.getTipoMembresia(),
+            savedUsuario.getFinMembresia()
+        );
+        SocioEvent evt = SocioEvent.of("ADMIN_CREATED", payload);
+
+        logger.debug("Publicando evento ADMIN_CREATED eventId={} for usuarioId={}", evt.getEventId(), savedUsuario.getId());
+        kafkaTemplate.send("usuarios.admin.created", savedUsuario.getId().toString(), evt);
+
+        return savedUsuario;
     }
 
     @Override 
@@ -137,7 +153,7 @@ public Usuario createSocioAndReturnEntity(CreateSocioDto dto) {
 
     @Override
     @Transactional
-    public void updateAdmin(Usuario usuario, UsuarioUpdateDto dto) {
+    public void updateAdmin(Usuario usuario, UpdateAdminDto dto) {
         if (dto.getNombre() != null && !dto.getNombre().isBlank()) {
             usuario.setNombre(dto.getNombre().trim());
         }
@@ -158,27 +174,84 @@ public Usuario createSocioAndReturnEntity(CreateSocioDto dto) {
             usuario.setPassword(passwordEncoder.encode(dto.getPassword()));
         }
         usuarioRepository.save(usuario);
+
+        // Construir el payload y evento
+        SocioPayload payload = new SocioPayload(
+            usuario.getId(),
+            usuario.getEmail(),
+            usuario.getNombre(),
+            usuario.getApellidos(),
+            usuario.getTipoMembresia(),
+            usuario.getFinMembresia()
+        );
+        SocioEvent evt = SocioEvent.of("ADMIN_UPDATED", payload);
+
+        logger.debug("Publicando evento ADMIN_UPDATED eventId={} for usuarioId={}", evt.getEventId(), usuario.getId());
+        kafkaTemplate.send("usuarios.admin.updated", usuario.getId().toString(), evt);
     }
 
-    @Override
-    public void updateSocio(Usuario usuario, UsuarioUpdateDto dto) {
-        if (dto.getNombre() != null) usuario.setNombre(dto.getNombre());
-        if (dto.getApellidos() != null) usuario.setApellidos(dto.getApellidos());
-        if (dto.getEmail() != null) usuario.setEmail(dto.getEmail());
-        if (dto.getTelefono() != null) usuario.setTelefono(dto.getTelefono());
-        if (dto.getTipoMembresia() != null) usuario.setTipoMembresia(dto.getTipoMembresia());
-        if (dto.getInicioMembresia() != null) usuario.setInicioMembresia(dto.getInicioMembresia());
-        if (dto.getFinMembresia() != null) usuario.setFinMembresia(dto.getFinMembresia());
+   public void updateSocio(Usuario usuario, UpdateSocioDto dto) {
+        if (dto.getNombre() != null && !dto.getNombre().isBlank()) {
+            usuario.setNombre(dto.getNombre().trim());
+        }
+        if (dto.getApellidos() != null && !dto.getApellidos().isBlank()) {
+            usuario.setApellidos(dto.getApellidos().trim());
+        }
+        if (dto.getEmail() != null && !dto.getEmail().isBlank()) {
+            String email = dto.getEmail().trim().toLowerCase();
+            if (usuarioRepository.existsByEmailAndIdNot(email, usuario.getId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email ya registrado");
+            }
+            usuario.setEmail(email);
+        }
+        if (dto.getTelefono() != null && !dto.getTelefono().isBlank()) {
+            usuario.setTelefono(dto.getTelefono().trim());
+        }
+        if (dto.getTipoMembresia() != null && !dto.getTipoMembresia().isBlank()) {
+            usuario.setTipoMembresia(dto.getTipoMembresia().trim());
+        }
+        if (dto.getFinMembresia() != null) {
+            usuario.setFinMembresia(dto.getFinMembresia());
+        }
         usuarioRepository.save(usuario);
+
+        // Construir el payload y evento
+        SocioPayload payload = new SocioPayload(
+            usuario.getId(),
+            usuario.getEmail(),
+            usuario.getNombre(),
+            usuario.getApellidos(),
+            usuario.getTipoMembresia(),
+            usuario.getFinMembresia()
+        );
+        SocioEvent evt = SocioEvent.of("SOCIO_UPDATED", payload);
+
+        logger.debug("Publicando evento SOCIO_UPDATED eventId={} for usuarioId={}", evt.getEventId(), usuario.getId());
+        kafkaTemplate.send("usuarios.socio.updated", usuario.getId().toString(), evt);
     }
 
     @Override
     public void deleteUsuario(Long id) {
-        try {
-            usuarioRepository.deleteById(id);
-        } catch (EmptyResultDataAccessException ex) {
+        Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
+        if (usuarioOpt.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado");
         }
+        Usuario usuario = usuarioOpt.get();
+        usuarioRepository.deleteById(id);
+
+        // Construir el payload y evento
+        SocioPayload payload = new SocioPayload(
+            usuario.getId(),
+            usuario.getEmail(),
+            usuario.getNombre(),
+            usuario.getApellidos(),
+            usuario.getTipoMembresia(),
+            usuario.getFinMembresia()
+        );
+        SocioEvent evt = SocioEvent.of("USUARIO_DELETED", payload);
+
+        logger.debug("Publicando evento USUARIO_DELETED eventId={} for usuarioId={}", evt.getEventId(), usuario.getId());
+        kafkaTemplate.send("usuarios.usuario.deleted", usuario.getId().toString(), evt);
     }
 
     @Override
@@ -208,4 +281,6 @@ public Usuario createSocioAndReturnEntity(CreateSocioDto dto) {
     public Usuario findEntityByEmail(String email) {
         return usuarioRepository.findByEmail(email).orElse(null);
     }
+
+   
 }

@@ -1,7 +1,7 @@
 package com.gymfex.usuarios_service.infrastructure.controller;
 
 import com.gymfex.usuarios_service.application.dto.request.CreateSocioDto;
-import com.gymfex.usuarios_service.application.dto.request.UsuarioUpdateDto;
+import com.gymfex.usuarios_service.application.dto.request.UpdateAdminDto;
 import com.gymfex.usuarios_service.application.dto.request.CreateAdminDto;
 import com.gymfex.usuarios_service.application.dto.response.UsuariosDto;
 import com.gymfex.usuarios_service.application.service.usuarioService;
@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/usuarios") // Ruta base para todos los endpoints
+@RequestMapping("/usuarios")
 public class usuarioController {
 
     private final usuarioService usuarioService;
@@ -25,7 +25,8 @@ public class usuarioController {
     public usuarioController(usuarioService usuarioService) {
         this.usuarioService = usuarioService;
     }
-    // 1) Obtener los usuarios 
+
+    // 1) Obtener los usuarios
     @GetMapping("/administradores")
     public List<UsuariosDto> getAdministradores() {
         return usuarioService.getAdministradores();
@@ -36,72 +37,68 @@ public class usuarioController {
         return usuarioService.getSocios();
     }
 
-
-    // 2) Obtener usuario por ID (GET /usuarios/{id})
+    // 2) Obtener usuario por ID
     @GetMapping("/{id}")
     public ResponseEntity<UsuariosDto> getUsuarioPorId(@PathVariable Long id) {
         return usuarioService.findById(id)
-            .map(ResponseEntity::ok)
-            .orElse(ResponseEntity.notFound().build());
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    // 3) Búsqueda con parámetros (GET /usuarios/search?nombre=...)
+    // 3) Búsqueda con parámetros
     @GetMapping("/search")
     public ResponseEntity<List<UsuariosDto>> buscarUsuarios(
-        @RequestParam(required = false) String nombre,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "10") int size
-    ) {
+            @RequestParam(required = false) String nombre,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
         List<UsuariosDto> lista = usuarioService.buscarPorNombre(nombre, page, size);
         return ResponseEntity.ok(lista);
     }
 
-    // 4) Crear un nuevo usuario (POST /usuarios)
-   @PostMapping("/socio")
-   public ResponseEntity<String> crearSocio(@Valid @RequestBody CreateSocioDto dto) {
-        
+    // 4) Crear un nuevo usuario
+    @PostMapping("/socio")
+    public ResponseEntity<String> crearSocio(@Valid @RequestBody CreateSocioDto dto) {
+
         usuarioService.createSocioAndReturnEntity(dto);
         return ResponseEntity.status(201).body("Socio creado correctamente");
     }
 
-    // 5) Crear un nuevo administrador (POST /usuarios/admin)
+    // 5) Crear un nuevo administrador
     @PostMapping("/admin")
     public ResponseEntity<String> crearAdmin(@Valid @RequestBody CreateAdminDto dto) {
         usuarioService.createAdminAndReturnEntity(dto);
         return ResponseEntity.status(201).body("Administrador creado correctamente");
     }
-    
-    // 6) Actualizar un usuario (PUT /usuarios/{id})
+
+    // 6) Actualizar un usuario
     @PutMapping("/{id}")
     public ResponseEntity<String> actualizarUsuario(
             @PathVariable Long id,
-            @Valid @RequestBody UsuarioUpdateDto dto) {
-        
+            @Valid @RequestBody UpdateAdminDto dto) {
+
         Optional<Usuario> opt = usuarioService.findEntityById(id);
         if (opt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
 
         Usuario usuario = opt.get();
-        String role = usuario.getRole();  
+        String role = usuario.getRole();
 
         if ("ADMIN".equalsIgnoreCase(role)) {
-            // actualizamos solo los campos válidos para admin
+
             usuarioService.updateAdmin(usuario, dto);
-        }
-        else if ("SOCIO".equalsIgnoreCase(role)) {
+        } else if ("SOCIO".equalsIgnoreCase(role)) {
             usuarioService.updateSocio(usuario, dto);
-        }
-        else {
+        } else {
             return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body("Role no válido: " + role);
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body("Role no válido: " + role);
         }
 
         return ResponseEntity.ok("Usuario actualizado correctamente");
     }
 
-    // 7) Eliminar un usuario (DELETE /usuarios/{id})
+    // 7) Eliminar un usuario
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminarUsuario(@PathVariable Long id) {
 

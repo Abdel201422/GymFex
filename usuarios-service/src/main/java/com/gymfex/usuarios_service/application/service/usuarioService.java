@@ -8,8 +8,9 @@ import java.util.Optional;
 
 import com.gymfex.usuarios_service.application.dto.request.CreateSocioDto;  
 import com.gymfex.usuarios_service.application.dto.request.CreateAdminDto;
-import com.gymfex.usuarios_service.application.dto.request.UsuarioUpdateDto;
-import com.gymfex.common.events.SocioPayload;
+import com.gymfex.usuarios_service.application.dto.request.UpdateAdminDto;
+import com.gymfex.usuarios_service.application.dto.request.UpdateSocioDto;
+
 
 public interface usuarioService {
     List<UsuariosDto> getUsuarios();
@@ -18,8 +19,8 @@ public interface usuarioService {
     Usuario createSocioAndReturnEntity(CreateSocioDto dto);
     Usuario createAdminAndReturnEntity(CreateAdminDto dto);
     Optional<Usuario> findEntityById(Long id);
-    void updateAdmin(Usuario usuario, UsuarioUpdateDto dto);
-    void updateSocio(Usuario usuario, UsuarioUpdateDto dto);
+    void updateAdmin(Usuario usuario, UpdateAdminDto dto);
+    void updateSocio(Usuario usuario, UpdateSocioDto dto);
     void deleteUsuario(Long id);
     List<UsuariosDto> getAdministradores();
     List<UsuariosDto> getSocios();
