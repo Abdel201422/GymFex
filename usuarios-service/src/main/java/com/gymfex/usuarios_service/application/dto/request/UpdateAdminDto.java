@@ -4,7 +4,6 @@ import lombok.Data;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
 
-// DTO para actualizar un administrador 
 @Data
 public class UpdateAdminDto {
     @Size(max = 100)

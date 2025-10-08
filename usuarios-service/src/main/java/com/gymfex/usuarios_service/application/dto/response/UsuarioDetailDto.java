@@ -7,13 +7,13 @@ import java.time.LocalDate;
 public class UsuarioDetailDto {
 
     private Long id;
-    private String nombre;    
-    private String apellidos;    
-    private String email;    
-    private String telefono;    
-    private String role;    
-    private String tipoMembresia;    
-    private LocalDate inicioMembresia;    
-    private LocalDate finMembresia;    
+    private String nombre;
+    private String apellidos;
+    private String email;
+    private String telefono;
+    private String role;
+    private String tipoMembresia;
+    private LocalDate inicioMembresia;
+    private LocalDate finMembresia;
     private String estado;
 }

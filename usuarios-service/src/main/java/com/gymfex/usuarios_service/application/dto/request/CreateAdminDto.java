@@ -4,13 +4,16 @@ import lombok.Data;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
-
-// DTO para crear un administrador
 @Data
 public class CreateAdminDto {
-    @NotBlank      private String nombre;
-    @NotBlank      private String apellidos;
-    @Email         private String email;
-    @NotBlank      private String telefono;
-    @NotBlank      private String password;
+    @NotBlank
+    private String nombre;
+    @NotBlank
+    private String apellidos;
+    @Email
+    private String email;
+    @NotBlank
+    private String telefono;
+    @NotBlank
+    private String password;
 }
