@@ -5,28 +5,23 @@ import com.gymfex.usuarios_service.domain.Usuario;
 import com.gymfex.common.events.SocioEvent;
 import com.gymfex.common.events.SocioPayload;
 import com.gymfex.usuarios_service.infrastructure.repository.usuarioRepository;
-
-import org.springframework.data.domain.PageRequest;
-import org.springframework.http.HttpStatus;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
-
 import com.gymfex.usuarios_service.application.mapper.UsuarioMapper;
-
-import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.data.domain.Page;
 import com.gymfex.usuarios_service.application.dto.request.CreateSocioDto;
 import com.gymfex.usuarios_service.application.dto.request.UpdateAdminDto;
 import com.gymfex.usuarios_service.application.dto.request.UpdateSocioDto;
 import com.gymfex.usuarios_service.application.dto.request.CreateAdminDto;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
-
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,12 +33,12 @@ public class usuarioServiceImpl implements usuarioService {
     private final UsuarioMapper mapper;
     private final PasswordEncoder passwordEncoder;
     private final KafkaTemplate<String, SocioEvent> kafkaTemplate;
-   private static final Logger logger = LoggerFactory.getLogger(usuarioServiceImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(usuarioServiceImpl.class);
 
     public usuarioServiceImpl(usuarioRepository usuarioRepository,
                               UsuarioMapper mapper,
                               PasswordEncoder passwordEncoder,
-                              KafkaTemplate<String, SocioEvent> kafkaTemplate) { 
+                              KafkaTemplate<String, SocioEvent> kafkaTemplate) {
         this.usuarioRepository = usuarioRepository;
         this.mapper = mapper;
         this.passwordEncoder = passwordEncoder;
@@ -52,8 +47,7 @@ public class usuarioServiceImpl implements usuarioService {
 
     @Override
     public List<UsuariosDto> getUsuarios() {
-        List<Usuario> usuarios = usuarioRepository.findAll();
-        return usuarios.stream()
+        return usuarioRepository.findAll().stream()
                 .map(mapper::toDto)
                 .toList();
     }
@@ -67,54 +61,40 @@ public class usuarioServiceImpl implements usuarioService {
     @Override
     public List<UsuariosDto> buscarPorNombre(String nombre, int page, int size) {
         PageRequest pageable = PageRequest.of(page, size);
-
-        Page<Usuario> usuariosPage;
-
-        if (nombre == null || nombre.isBlank()) {
-            usuariosPage = usuarioRepository.findAll(pageable);
-        } else {
-            usuariosPage = usuarioRepository.buscarPorNombre(nombre, pageable);
-        }
-
-        return usuariosPage.getContent()
-                .stream()
+        Page<Usuario> usuariosPage = (nombre == null || nombre.isBlank())
+                ? usuarioRepository.findAll(pageable)
+                : usuarioRepository.buscarPorNombre(nombre, pageable);
+        return usuariosPage.getContent().stream()
                 .map(mapper::toDto)
                 .toList();
     }
 
     @Override
-public Usuario createSocioAndReturnEntity(CreateSocioDto dto) {
-    logger.debug("createSocioAndReturnEntity dto : {}", dto);
-    if (usuarioRepository.existsByEmail(dto.getEmail())) {
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email ya registrado");
+    public Usuario createSocioAndReturnEntity(CreateSocioDto dto) {
+        logger.debug("createSocioAndReturnEntity dto : {}", dto);
+        if (usuarioRepository.existsByEmail(dto.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email ya registrado");
+        }
+        Usuario usuario = mapper.toEntity(dto);
+        usuario.setRole("SOCIO");
+        Usuario savedUsuario = usuarioRepository.save(usuario);
+
+        SocioPayload payload = new SocioPayload(
+                savedUsuario.getId(),
+                savedUsuario.getEmail(),
+                savedUsuario.getNombre(),
+                savedUsuario.getApellidos(),
+                savedUsuario.getTipoMembresia(),
+                savedUsuario.getFinMembresia()
+        );
+        SocioEvent evt = SocioEvent.of("SOCIO_CREATED", payload);
+
+        logger.debug("Publicando evento SocioEvent eventId={} eventType={} for usuarioId={}",
+                evt.getEventId(), evt.getEventType(), savedUsuario.getId());
+        kafkaTemplate.send("usuarios.socio.created", savedUsuario.getId().toString(), evt);
+
+        return savedUsuario;
     }
-    Usuario usuario = mapper.toEntity(dto);
-    usuario.setRole("SOCIO");
-    // guardamos y usamos la entidad resultante
-    Usuario savedUsuario = usuarioRepository.save(usuario);
-
-    // construir el payload
-    SocioPayload payload = new SocioPayload(
-        savedUsuario.getId(),
-        savedUsuario.getEmail(),
-        savedUsuario.getNombre(),
-        savedUsuario.getApellidos(),
-        savedUsuario.getTipoMembresia(),
-        savedUsuario.getFinMembresia()
-    );
-
-    // usar el factory para generar eventId, occurredAt y source automáticamente
-    SocioEvent evt = SocioEvent.of("SOCIO_CREATED", payload);
-
-    logger.debug("Publicando evento SocioEvent eventId={} eventType={} for usuarioId={}",
-                 evt.getEventId(), evt.getEventType(), savedUsuario.getId());
-
-    // publicar topic y loguear resultado del envío
-    kafkaTemplate.send("usuarios.socio.created", savedUsuario.getId().toString(), evt);
-    
-    return savedUsuario;
-}
-
 
     @Override
     public Usuario createAdminAndReturnEntity(CreateAdminDto dto) {
@@ -129,14 +109,13 @@ public Usuario createSocioAndReturnEntity(CreateSocioDto dto) {
         usuario.setPassword(passwordEncoder.encode(dto.getPassword()));
         Usuario savedUsuario = usuarioRepository.save(usuario);
 
-        // Construir el payload y evento
         SocioPayload payload = new SocioPayload(
-            savedUsuario.getId(),
-            savedUsuario.getEmail(),
-            savedUsuario.getNombre(),
-            savedUsuario.getApellidos(),
-            savedUsuario.getTipoMembresia(),
-            savedUsuario.getFinMembresia()
+                savedUsuario.getId(),
+                savedUsuario.getEmail(),
+                savedUsuario.getNombre(),
+                savedUsuario.getApellidos(),
+                savedUsuario.getTipoMembresia(),
+                savedUsuario.getFinMembresia()
         );
         SocioEvent evt = SocioEvent.of("ADMIN_CREATED", payload);
 
@@ -146,7 +125,7 @@ public Usuario createSocioAndReturnEntity(CreateSocioDto dto) {
         return savedUsuario;
     }
 
-    @Override 
+    @Override
     public Optional<Usuario> findEntityById(Long id) {
         return usuarioRepository.findById(id);
     }
@@ -175,14 +154,13 @@ public Usuario createSocioAndReturnEntity(CreateSocioDto dto) {
         }
         usuarioRepository.save(usuario);
 
-        // Construir el payload y evento
         SocioPayload payload = new SocioPayload(
-            usuario.getId(),
-            usuario.getEmail(),
-            usuario.getNombre(),
-            usuario.getApellidos(),
-            usuario.getTipoMembresia(),
-            usuario.getFinMembresia()
+                usuario.getId(),
+                usuario.getEmail(),
+                usuario.getNombre(),
+                usuario.getApellidos(),
+                usuario.getTipoMembresia(),
+                usuario.getFinMembresia()
         );
         SocioEvent evt = SocioEvent.of("ADMIN_UPDATED", payload);
 
@@ -190,7 +168,7 @@ public Usuario createSocioAndReturnEntity(CreateSocioDto dto) {
         kafkaTemplate.send("usuarios.admin.updated", usuario.getId().toString(), evt);
     }
 
-   public void updateSocio(Usuario usuario, UpdateSocioDto dto) {
+    public void updateSocio(Usuario usuario, UpdateSocioDto dto) {
         if (dto.getNombre() != null && !dto.getNombre().isBlank()) {
             usuario.setNombre(dto.getNombre().trim());
         }
@@ -215,14 +193,13 @@ public Usuario createSocioAndReturnEntity(CreateSocioDto dto) {
         }
         usuarioRepository.save(usuario);
 
-        // Construir el payload y evento
         SocioPayload payload = new SocioPayload(
-            usuario.getId(),
-            usuario.getEmail(),
-            usuario.getNombre(),
-            usuario.getApellidos(),
-            usuario.getTipoMembresia(),
-            usuario.getFinMembresia()
+                usuario.getId(),
+                usuario.getEmail(),
+                usuario.getNombre(),
+                usuario.getApellidos(),
+                usuario.getTipoMembresia(),
+                usuario.getFinMembresia()
         );
         SocioEvent evt = SocioEvent.of("SOCIO_UPDATED", payload);
 
@@ -239,14 +216,13 @@ public Usuario createSocioAndReturnEntity(CreateSocioDto dto) {
         Usuario usuario = usuarioOpt.get();
         usuarioRepository.deleteById(id);
 
-        // Construir el payload y evento
         SocioPayload payload = new SocioPayload(
-            usuario.getId(),
-            usuario.getEmail(),
-            usuario.getNombre(),
-            usuario.getApellidos(),
-            usuario.getTipoMembresia(),
-            usuario.getFinMembresia()
+                usuario.getId(),
+                usuario.getEmail(),
+                usuario.getNombre(),
+                usuario.getApellidos(),
+                usuario.getTipoMembresia(),
+                usuario.getFinMembresia()
         );
         SocioEvent evt = SocioEvent.of("USUARIO_DELETED", payload);
 
@@ -256,31 +232,34 @@ public Usuario createSocioAndReturnEntity(CreateSocioDto dto) {
 
     @Override
     public List<UsuariosDto> getAdministradores() {
-        List<Usuario> admins = usuarioRepository.findAllByRoleIgnoreCase("ADMIN");
-        return admins.stream().map(mapper::toDto).toList();
+        return usuarioRepository.findAllByRoleIgnoreCase("ADMIN").stream()
+                .map(mapper::toDto)
+                .toList();
     }
 
     @Override
     public List<UsuariosDto> getSocios() {
-        List<Usuario> socios = usuarioRepository.findAllByRoleIgnoreCase("SOCIO");
-        return socios.stream().map(mapper::toDto).toList();
+        return usuarioRepository.findAllByRoleIgnoreCase("SOCIO").stream()
+                .map(mapper::toDto)
+                .toList();
     }
 
     @Override
     public List<UsuariosDto> buscarPorRole(String role, int page, int size) {
         PageRequest pageable = PageRequest.of(page, size);
         Page<Usuario> pageRes = usuarioRepository.findAllByRoleIgnoreCase(role, pageable);
-        return pageRes.getContent().stream().map(mapper::toDto).toList();
+        return pageRes.getContent().stream()
+                .map(mapper::toDto)
+                .toList();
     }
 
     @Override
     public boolean checkPassword(Usuario usuario, String rawPassword) {
         return passwordEncoder.matches(rawPassword, usuario.getPassword());
     }
+
     @Override
     public Usuario findEntityByEmail(String email) {
         return usuarioRepository.findByEmail(email).orElse(null);
     }
-
-   
 }

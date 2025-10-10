@@ -6,11 +6,10 @@ import com.gymfex.usuarios_service.domain.Usuario;
 import java.util.List;
 import java.util.Optional;
 
-import com.gymfex.usuarios_service.application.dto.request.CreateSocioDto;  
+import com.gymfex.usuarios_service.application.dto.request.CreateSocioDto;
 import com.gymfex.usuarios_service.application.dto.request.CreateAdminDto;
 import com.gymfex.usuarios_service.application.dto.request.UpdateAdminDto;
 import com.gymfex.usuarios_service.application.dto.request.UpdateSocioDto;
-
 
 public interface usuarioService {
     List<UsuariosDto> getUsuarios();
@@ -27,5 +26,5 @@ public interface usuarioService {
     List<UsuariosDto> buscarPorRole(String role, int page, int size);
     Usuario findEntityByEmail(String email);
     boolean checkPassword(Usuario usuario, String rawPassword);
-   
+
 }

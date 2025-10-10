@@ -54,7 +54,6 @@ public class Usuario {
     @PrePersist
     public void prePersist() {
         this.creadoEn = OffsetDateTime.now();
-        // Calcula estado según fechas de membresía
         if (this.tipoMembresia != null
          && this.inicioMembresia != null
          && this.finMembresia != null) {

@@ -1,6 +1,5 @@
 package com.gymfex.usuarios_service.infrastructure.config;
 
-
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
