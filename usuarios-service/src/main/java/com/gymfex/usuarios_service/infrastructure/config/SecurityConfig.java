@@ -27,7 +27,6 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/auth/**", "/actuator/**", "/error").permitAll()
-                // 👇 AGREGA ESTAS REGLAS ESPECÍFICAS
                 .requestMatchers("/usuarios/socio").hasRole("ADMIN")
                 .requestMatchers("/usuarios/admin").hasRole("ADMIN")
                 .requestMatchers("/usuarios/**").authenticated()

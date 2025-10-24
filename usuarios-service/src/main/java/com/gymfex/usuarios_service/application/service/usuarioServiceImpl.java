@@ -4,6 +4,8 @@ import com.gymfex.usuarios_service.application.dto.response.UsuariosDto;
 import com.gymfex.usuarios_service.domain.Usuario;
 import com.gymfex.common.events.SocioEvent;
 import com.gymfex.common.events.SocioPayload;
+import com.gymfex.common.events.AdminEvent;
+import com.gymfex.common.events.AdminPayload;
 import com.gymfex.usuarios_service.infrastructure.repository.usuarioRepository;
 import com.gymfex.usuarios_service.application.mapper.UsuarioMapper;
 import com.gymfex.usuarios_service.application.dto.request.CreateSocioDto;
@@ -19,9 +21,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.OffsetDateTime;
+import java.time.LocalDate;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,17 +37,20 @@ public class usuarioServiceImpl implements usuarioService {
     private final usuarioRepository usuarioRepository;
     private final UsuarioMapper mapper;
     private final PasswordEncoder passwordEncoder;
-    private final KafkaTemplate<String, SocioEvent> kafkaTemplate;
+    private final KafkaTemplate<String, SocioEvent> socioKafkaTemplate;
+    private final KafkaTemplate<String, AdminEvent> adminKafkaTemplate;
     private static final Logger logger = LoggerFactory.getLogger(usuarioServiceImpl.class);
 
     public usuarioServiceImpl(usuarioRepository usuarioRepository,
                               UsuarioMapper mapper,
                               PasswordEncoder passwordEncoder,
-                              KafkaTemplate<String, SocioEvent> kafkaTemplate) {
+                              @Qualifier("socioKafkaTemplate") KafkaTemplate<String, SocioEvent> socioKafkaTemplate,
+                              @Qualifier("adminKafkaTemplate") KafkaTemplate<String, AdminEvent> adminKafkaTemplate) {
         this.usuarioRepository = usuarioRepository;
         this.mapper = mapper;
         this.passwordEncoder = passwordEncoder;
-        this.kafkaTemplate = kafkaTemplate;
+        this.socioKafkaTemplate = socioKafkaTemplate;
+        this.adminKafkaTemplate = adminKafkaTemplate;
     }
 
     @Override
@@ -72,11 +80,22 @@ public class usuarioServiceImpl implements usuarioService {
     @Override
     public Usuario createSocioAndReturnEntity(CreateSocioDto dto) {
         logger.debug("createSocioAndReturnEntity dto : {}", dto);
-        if (usuarioRepository.existsByEmail(dto.getEmail())) {
+        String emailNormalized = dto.getEmail() != null ? dto.getEmail().trim().toLowerCase() : null;
+        if (emailNormalized == null || emailNormalized.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email requerido");
+        }
+        if (usuarioRepository.existsByEmail(emailNormalized)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email ya registrado");
         }
+
         Usuario usuario = mapper.toEntity(dto);
+        usuario.setEmail(emailNormalized);
         usuario.setRole("SOCIO");
+        usuario.setCreadoEn(OffsetDateTime.now());
+
+        // recalcula estado según fechas (se asegura estado coherente al crear)
+        recalcularEstado(usuario);
+
         Usuario savedUsuario = usuarioRepository.save(usuario);
 
         SocioPayload payload = new SocioPayload(
@@ -91,36 +110,50 @@ public class usuarioServiceImpl implements usuarioService {
 
         logger.debug("Publicando evento SocioEvent eventId={} eventType={} for usuarioId={}",
                 evt.getEventId(), evt.getEventType(), savedUsuario.getId());
-        kafkaTemplate.send("usuarios.socio.created", savedUsuario.getId().toString(), evt);
+        socioKafkaTemplate.send("usuarios.socio.created", savedUsuario.getId().toString(), evt);
 
         return savedUsuario;
     }
 
     @Override
     public Usuario createAdminAndReturnEntity(CreateAdminDto dto) {
-        if (usuarioRepository.existsByEmail(dto.getEmail())) {
+        String emailNormalized = dto.getEmail() != null ? dto.getEmail().trim().toLowerCase() : null;
+        if (emailNormalized == null || emailNormalized.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email requerido");
+        }
+        if (usuarioRepository.existsByEmail(emailNormalized)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email ya registrado");
         }
+        logger.debug("CreateAdminDto: {}", dto);
         Usuario usuario = mapper.toEntity(dto);
+
+        usuario.setEmail(emailNormalized);
         usuario.setRole("ADMIN");
+
         if (dto.getPassword() == null || dto.getPassword().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password requerida");
         }
         usuario.setPassword(passwordEncoder.encode(dto.getPassword()));
+
+        usuario.setCreadoEn(OffsetDateTime.now());
+
+        // ADMIN no depende de membresía -> EXENTO
+        usuario.setEstado("EXENTO");
+
+        logger.debug("Usuario final (antes de save): {}", usuario);
         Usuario savedUsuario = usuarioRepository.save(usuario);
 
-        SocioPayload payload = new SocioPayload(
+        AdminPayload payload = new AdminPayload(
                 savedUsuario.getId(),
                 savedUsuario.getEmail(),
                 savedUsuario.getNombre(),
                 savedUsuario.getApellidos(),
-                savedUsuario.getTipoMembresia(),
-                savedUsuario.getFinMembresia()
+                savedUsuario.getTelefono()
         );
-        SocioEvent evt = SocioEvent.of("ADMIN_CREATED", payload);
+        AdminEvent evt = AdminEvent.of("ADMIN_CREATED", payload);
 
         logger.debug("Publicando evento ADMIN_CREATED eventId={} for usuarioId={}", evt.getEventId(), savedUsuario.getId());
-        kafkaTemplate.send("usuarios.admin.created", savedUsuario.getId().toString(), evt);
+        adminKafkaTemplate.send("usuarios.admin.created", savedUsuario.getId().toString(), evt);
 
         return savedUsuario;
     }
@@ -152,22 +185,27 @@ public class usuarioServiceImpl implements usuarioService {
         if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
             usuario.setPassword(passwordEncoder.encode(dto.getPassword()));
         }
+
+        // Mantener EXENTO para ADMIN por si acaso (no dependemos de membresía)
+        usuario.setEstado("EXENTO");
+
         usuarioRepository.save(usuario);
 
-        SocioPayload payload = new SocioPayload(
+        AdminPayload payload = new AdminPayload(
                 usuario.getId(),
                 usuario.getEmail(),
                 usuario.getNombre(),
                 usuario.getApellidos(),
-                usuario.getTipoMembresia(),
-                usuario.getFinMembresia()
+                usuario.getTelefono()
         );
-        SocioEvent evt = SocioEvent.of("ADMIN_UPDATED", payload);
+        AdminEvent evt = AdminEvent.of("ADMIN_UPDATED", payload);
 
         logger.debug("Publicando evento ADMIN_UPDATED eventId={} for usuarioId={}", evt.getEventId(), usuario.getId());
-        kafkaTemplate.send("usuarios.admin.updated", usuario.getId().toString(), evt);
+        adminKafkaTemplate.send("usuarios.admin.updated", usuario.getId().toString(), evt);
     }
 
+    @Override
+    @Transactional
     public void updateSocio(Usuario usuario, UpdateSocioDto dto) {
         if (dto.getNombre() != null && !dto.getNombre().isBlank()) {
             usuario.setNombre(dto.getNombre().trim());
@@ -188,9 +226,16 @@ public class usuarioServiceImpl implements usuarioService {
         if (dto.getTipoMembresia() != null && !dto.getTipoMembresia().isBlank()) {
             usuario.setTipoMembresia(dto.getTipoMembresia().trim());
         }
+        if (dto.getInicioMembresia() != null) {
+            usuario.setInicioMembresia(dto.getInicioMembresia());
+        }
         if (dto.getFinMembresia() != null) {
             usuario.setFinMembresia(dto.getFinMembresia());
         }
+
+        // Recalcular estado en base a las fechas/rol actualizadas
+        recalcularEstado(usuario);
+
         usuarioRepository.save(usuario);
 
         SocioPayload payload = new SocioPayload(
@@ -204,7 +249,7 @@ public class usuarioServiceImpl implements usuarioService {
         SocioEvent evt = SocioEvent.of("SOCIO_UPDATED", payload);
 
         logger.debug("Publicando evento SOCIO_UPDATED eventId={} for usuarioId={}", evt.getEventId(), usuario.getId());
-        kafkaTemplate.send("usuarios.socio.updated", usuario.getId().toString(), evt);
+        socioKafkaTemplate.send("usuarios.socio.updated", usuario.getId().toString(), evt);
     }
 
     @Override
@@ -216,18 +261,30 @@ public class usuarioServiceImpl implements usuarioService {
         Usuario usuario = usuarioOpt.get();
         usuarioRepository.deleteById(id);
 
-        SocioPayload payload = new SocioPayload(
+        if ("SOCIO".equalsIgnoreCase(usuario.getRole())) {
+            SocioPayload payload = new SocioPayload(
                 usuario.getId(),
                 usuario.getEmail(),
                 usuario.getNombre(),
                 usuario.getApellidos(),
                 usuario.getTipoMembresia(),
                 usuario.getFinMembresia()
-        );
-        SocioEvent evt = SocioEvent.of("USUARIO_DELETED", payload);
-
-        logger.debug("Publicando evento USUARIO_DELETED eventId={} for usuarioId={}", evt.getEventId(), usuario.getId());
-        kafkaTemplate.send("usuarios.usuario.deleted", usuario.getId().toString(), evt);
+            );
+            SocioEvent evt = SocioEvent.of("SOCIO_DELETED", payload);
+            logger.debug("Publicando evento SOCIO_DELETED eventId={} for usuarioId={}", evt.getEventId(), usuario.getId());
+            socioKafkaTemplate.send("usuarios.socio.deleted", usuario.getId().toString(), evt);
+        } else if ("ADMIN".equalsIgnoreCase(usuario.getRole())) {
+            AdminPayload payload = new AdminPayload(
+                usuario.getId(),
+                usuario.getEmail(),
+                usuario.getNombre(),
+                usuario.getApellidos(),
+                usuario.getTelefono()
+            );
+            AdminEvent evt = AdminEvent.of("ADMIN_DELETED", payload);
+            logger.debug("Publicando evento ADMIN_DELETED eventId={} for usuarioId={}", evt.getEventId(), usuario.getId());
+            adminKafkaTemplate.send("usuarios.admin.deleted", usuario.getId().toString(), evt);
+        }
     }
 
     @Override
@@ -261,5 +318,44 @@ public class usuarioServiceImpl implements usuarioService {
     @Override
     public Usuario findEntityByEmail(String email) {
         return usuarioRepository.findByEmail(email).orElse(null);
+    }
+
+    // ------------------------------
+    // Helper: recalcula estado en función del role y las fechas
+    // ------------------------------
+    private void recalcularEstado(Usuario usuario) {
+        if (usuario == null) return;
+
+        String role = usuario.getRole();
+        LocalDate hoy = LocalDate.now();
+
+        if ("ADMIN".equalsIgnoreCase(role)) {
+            usuario.setEstado("EXENTO");
+            return;
+        }
+
+        // Para SOCIO: requiere comprobar fechas de membresía
+        if ("SOCIO".equalsIgnoreCase(role)) {
+            LocalDate inicio = usuario.getInicioMembresia();
+            LocalDate fin = usuario.getFinMembresia();
+
+            if (inicio != null && fin != null) {
+                // activo si hoy está entre inicio y fin inclusive
+                if (( !hoy.isBefore(inicio) ) && ( !hoy.isAfter(fin) )) {
+                    usuario.setEstado("ACTIVO");
+                    return;
+                } else {
+                    usuario.setEstado("INACTIVO");
+                    return;
+                }
+            } else {
+                // sin fechas -> inactivo
+                usuario.setEstado("INACTIVO");
+                return;
+            }
+        }
+
+        // Fallback por seguridad
+        usuario.setEstado("INACTIVO");
     }
 }

@@ -3,7 +3,6 @@ version: '3.8'
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.9.0
-    container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -15,13 +14,13 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.9.0
-    container_name: kafka
     depends_on:
       - zookeeper
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -30,7 +29,52 @@ services:
     volumes:
       - kafka_data:/var/lib/kafka/data
 
+  postgres:
+    image: postgres:16
+    container_name: postgres-db
+    restart: always
+    environment:
+      POSTGRES_USER: gymfex
+      POSTGRES_PASSWORD: gymfex
+      POSTGRES_DB: usuariosdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  usuarios-service:
+    build:
+      context: .
+      dockerfile: usuarios-service/Dockerfile
+    depends_on:
+      - kafka
+      - postgres
+    environment:
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/usuariosdb
+      - SPRING_DATASOURCE_USERNAME=gymfex
+      - SPRING_DATASOURCE_PASSWORD=gymfex
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.PostgreSQLDialect
+    ports:
+      - "8081:8080"
+
+  notificaciones-service:
+    build:
+      context: .
+      dockerfile: notificaciones-service/Dockerfile
+    depends_on:
+      - kafka
+    environment:
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - SPRING_PROFILES_ACTIVE=dev
+    ports:
+      - "8082:8080"
+
 volumes:
   zk_data:
   zk_log:
   kafka_data:
+  postgres_data:

@@ -3,6 +3,7 @@ package com.gymfex.usuarios_service.infrastructure.controller;
 import com.gymfex.usuarios_service.application.dto.request.CreateSocioDto;
 import com.gymfex.usuarios_service.application.dto.request.UpdateAdminDto;
 import com.gymfex.usuarios_service.application.dto.request.CreateAdminDto;
+import com.gymfex.usuarios_service.application.dto.request.UpdateSocioDto;
 import com.gymfex.usuarios_service.application.dto.response.UsuariosDto;
 import com.gymfex.usuarios_service.application.service.usuarioService;
 import com.gymfex.usuarios_service.domain.Usuario;
@@ -26,7 +27,6 @@ public class usuarioController {
         this.usuarioService = usuarioService;
     }
 
-    // 1) Obtener los usuarios
     @GetMapping("/administradores")
     public List<UsuariosDto> getAdministradores() {
         return usuarioService.getAdministradores();
@@ -37,7 +37,6 @@ public class usuarioController {
         return usuarioService.getSocios();
     }
 
-    // 2) Obtener usuario por ID
     @GetMapping("/{id}")
     public ResponseEntity<UsuariosDto> getUsuarioPorId(@PathVariable Long id) {
         return usuarioService.findById(id)
@@ -45,7 +44,6 @@ public class usuarioController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // 3) Búsqueda con parámetros
     @GetMapping("/search")
     public ResponseEntity<List<UsuariosDto>> buscarUsuarios(
             @RequestParam(required = false) String nombre,
@@ -55,7 +53,6 @@ public class usuarioController {
         return ResponseEntity.ok(lista);
     }
 
-    // 4) Crear un nuevo usuario
     @PostMapping("/socio")
     public ResponseEntity<String> crearSocio(@Valid @RequestBody CreateSocioDto dto) {
 
@@ -63,18 +60,16 @@ public class usuarioController {
         return ResponseEntity.status(201).body("Socio creado correctamente");
     }
 
-    // 5) Crear un nuevo administrador
     @PostMapping("/admin")
     public ResponseEntity<String> crearAdmin(@Valid @RequestBody CreateAdminDto dto) {
         usuarioService.createAdminAndReturnEntity(dto);
         return ResponseEntity.status(201).body("Administrador creado correctamente");
     }
 
-    // 6) Actualizar un usuario
-    @PutMapping("/{id}")
-    public ResponseEntity<String> actualizarUsuario(
+    @PutMapping("/admin/{id}")
+    public ResponseEntity<String> actualizarAdmin(
             @PathVariable Long id,
-            @Valid @RequestBody UpdateAdminDto dto) {
+            @Valid @RequestBody UpdateAdminDto adminDto) {
 
         Optional<Usuario> opt = usuarioService.findEntityById(id);
         if (opt.isEmpty()) {
@@ -82,23 +77,37 @@ public class usuarioController {
         }
 
         Usuario usuario = opt.get();
-        String role = usuario.getRole();
-
-        if ("ADMIN".equalsIgnoreCase(role)) {
-
-            usuarioService.updateAdmin(usuario, dto);
-        } else if ("SOCIO".equalsIgnoreCase(role)) {
-            usuarioService.updateSocio(usuario, dto);
-        } else {
+        if (!"ADMIN".equalsIgnoreCase(usuario.getRole())) {
             return ResponseEntity
                     .status(HttpStatus.BAD_REQUEST)
-                    .body("Role no válido: " + role);
+                    .body("Role no válido: " + usuario.getRole());
         }
 
-        return ResponseEntity.ok("Usuario actualizado correctamente");
+        usuarioService.updateAdmin(usuario, adminDto);
+        return ResponseEntity.ok("Admin actualizado correctamente");
     }
 
-    // 7) Eliminar un usuario
+    @PutMapping("/socio/{id}")
+    public ResponseEntity<String> actualizarSocio(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateSocioDto socioDto) {
+
+        Optional<Usuario> opt = usuarioService.findEntityById(id);
+        if (opt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Usuario usuario = opt.get();
+        if (!"SOCIO".equalsIgnoreCase(usuario.getRole())) {
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body("Role no válido: " + usuario.getRole());
+        }
+
+        usuarioService.updateSocio(usuario, socioDto);
+        return ResponseEntity.ok("Socio actualizado correctamente");
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminarUsuario(@PathVariable Long id) {
 

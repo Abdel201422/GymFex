@@ -1,7 +1,6 @@
 package com.gymfex.usuarios_service.infrastructure.controller;
 
 import com.gymfex.usuarios_service.application.dto.request.CreateAdminDto;
-import com.gymfex.usuarios_service.application.dto.request.CreateSocioDto;
 import com.gymfex.usuarios_service.application.service.usuarioService;
 import com.gymfex.usuarios_service.domain.Usuario;
 import com.gymfex.usuarios_service.infrastructure.config.JwtService;
@@ -24,14 +23,6 @@ public class AuthController {
         this.usuarioService = usuarioService;
         this.jwtService = jwtService;
     }
-
-    /* @PostMapping("/register/socio")
-    public ResponseEntity<AuthResponse> registerSocio(@Valid @RequestBody CreateSocioDto dto) {
-        // IMPORTANTE: CreateSocioDto debe incluir password si quieres que el socio tenga password
-        Usuario u = usuarioService.createSocioAndReturnEntity(dto);
-        String token = jwtService.generateToken(u.getEmail(), u.getRole());
-        return ResponseEntity.status(201).body(new AuthResponse(token));
-    }*/
 
     @PostMapping("/register/admin")
     public ResponseEntity<AuthResponse> registerAdmin(@Valid @RequestBody CreateAdminDto dto) {

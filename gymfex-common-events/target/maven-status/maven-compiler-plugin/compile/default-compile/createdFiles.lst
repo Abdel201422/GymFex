@@ -1,2 +1,4 @@
-com\gymfex\common\events\SocioEvent.class
 com\gymfex\common\events\SocioPayload.class
+com\gymfex\common\events\AdminPayload.class
+com\gymfex\common\events\AdminEvent.class
+com\gymfex\common\events\SocioEvent.class

@@ -50,23 +50,6 @@ public class Usuario {
 
     @Column(nullable = false)
     private OffsetDateTime creadoEn;
-
-    @PrePersist
-    public void prePersist() {
-        this.creadoEn = OffsetDateTime.now();
-        if (this.tipoMembresia != null
-         && this.inicioMembresia != null
-         && this.finMembresia != null) {
-            LocalDate hoy = LocalDate.now();
-            if (hoy.isBefore(inicioMembresia))
-                this.estado = "PENDIENTE";
-            else if (!hoy.isAfter(finMembresia))
-                this.estado = "ACTIVO";
-            else
-                this.estado = "VENCIDO";
-        } else {
-            this.estado = "INACTIVO";
-        }
-    }
+    
 }
 

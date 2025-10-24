@@ -4,10 +4,10 @@ CREATE TABLE usuario (
   apellidos        VARCHAR(150)    NOT NULL,
   email            VARCHAR(255)    NOT NULL UNIQUE,
   telefono         VARCHAR(20),
-  role             VARCHAR(50)     NOT NULL CHECK (role IN ('ADMIN', 'SOCIO', 'ENTRENADOR')),
+  role             VARCHAR(50)     NOT NULL CHECK (role IN ('ADMIN', 'SOCIO')),
   
  
-  tipo_membresia   VARCHAR(50)     NOT NULL CHECK (tipo_membresia IN ('mensual','trimestral','anual','clases_puntuales')),
+  tipo_membresia   VARCHAR(50)     NOT NULL CHECK (tipo_membresia IN ('mensual','trimestral','anual')),
   inicio_membresia DATE            NOT NULL,
   fin_membresia    DATE            NOT NULL,
   estado           VARCHAR(20)     NOT NULL CHECK (estado IN ('activa','suspendida','expirada')),
