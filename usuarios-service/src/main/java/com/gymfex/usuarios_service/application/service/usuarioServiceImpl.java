@@ -8,10 +8,12 @@ import com.gymfex.common.events.AdminEvent;
 import com.gymfex.common.events.AdminPayload;
 import com.gymfex.usuarios_service.infrastructure.repository.usuarioRepository;
 import com.gymfex.usuarios_service.application.mapper.UsuarioMapper;
+import com.gymfex.usuarios_service.constants.Constants;
 import com.gymfex.usuarios_service.application.dto.request.CreateSocioDto;
 import com.gymfex.usuarios_service.application.dto.request.UpdateAdminDto;
 import com.gymfex.usuarios_service.application.dto.request.UpdateSocioDto;
 import com.gymfex.usuarios_service.application.dto.request.CreateAdminDto;
+import com.gymfex.usuarios_service.constants.Constants;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Page;
@@ -119,10 +121,10 @@ public class usuarioServiceImpl implements usuarioService {
     public Usuario createAdminAndReturnEntity(CreateAdminDto dto) {
         String emailNormalized = dto.getEmail() != null ? dto.getEmail().trim().toLowerCase() : null;
         if (emailNormalized == null || emailNormalized.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email requerido");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, Constants.EMAIL_REGISTERED);
         }
         if (usuarioRepository.existsByEmail(emailNormalized)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email ya registrado");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, Constants.EMAIL_REGISTERED);
         }
         logger.debug("CreateAdminDto: {}", dto);
         Usuario usuario = mapper.toEntity(dto);
@@ -175,7 +177,7 @@ public class usuarioServiceImpl implements usuarioService {
         if (dto.getEmail() != null && !dto.getEmail().isBlank()) {
             String email = dto.getEmail().trim().toLowerCase();
             if (usuarioRepository.existsByEmailAndIdNot(email, usuario.getId())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email ya registrado");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, Constants.EMAIL_REGISTERED);
             }
             usuario.setEmail(email);
         }
@@ -216,7 +218,7 @@ public class usuarioServiceImpl implements usuarioService {
         if (dto.getEmail() != null && !dto.getEmail().isBlank()) {
             String email = dto.getEmail().trim().toLowerCase();
             if (usuarioRepository.existsByEmailAndIdNot(email, usuario.getId())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email ya registrado");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, Constants.EMAIL_REGISTERED);
             }
             usuario.setEmail(email);
         }
