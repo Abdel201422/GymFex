@@ -18,7 +18,7 @@ public class JavaMailEmailSender {
         msg.setTo(to);
         msg.setSubject(subject);
         msg.setText(body);
-        msg.setFrom("da9aa40f00023f@inbox.mailtrap.io"); // <-- Remitente Mailtrap
+        msg.setFrom("da9aa40f00023f@inbox.mailtrap.io"); 
         mailSender.send(msg);
     }
 }
