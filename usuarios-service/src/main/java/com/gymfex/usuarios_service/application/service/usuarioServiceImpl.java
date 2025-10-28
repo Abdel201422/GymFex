@@ -95,7 +95,6 @@ public class usuarioServiceImpl implements usuarioService {
         usuario.setRole("SOCIO");
         usuario.setCreadoEn(OffsetDateTime.now());
 
-        // recalcula estado según fechas (se asegura estado coherente al crear)
         recalcularEstado(usuario);
 
         Usuario savedUsuario = usuarioRepository.save(usuario);
@@ -188,7 +187,6 @@ public class usuarioServiceImpl implements usuarioService {
             usuario.setPassword(passwordEncoder.encode(dto.getPassword()));
         }
 
-        // Mantener EXENTO para ADMIN por si acaso (no dependemos de membresía)
         usuario.setEstado("EXENTO");
 
         usuarioRepository.save(usuario);
@@ -235,7 +233,7 @@ public class usuarioServiceImpl implements usuarioService {
             usuario.setFinMembresia(dto.getFinMembresia());
         }
 
-        // Recalcular estado en base a las fechas/rol actualizadas
+        // Recalcular estado en base a las fechas/rol 
         recalcularEstado(usuario);
 
         usuarioRepository.save(usuario);
@@ -323,8 +321,6 @@ public class usuarioServiceImpl implements usuarioService {
     }
 
     // ------------------------------
-    // Helper: recalcula estado en función del role y las fechas
-    // ------------------------------
     private void recalcularEstado(Usuario usuario) {
         if (usuario == null) return;
 
@@ -336,13 +332,12 @@ public class usuarioServiceImpl implements usuarioService {
             return;
         }
 
-        // Para SOCIO: requiere comprobar fechas de membresía
+        
         if ("SOCIO".equalsIgnoreCase(role)) {
             LocalDate inicio = usuario.getInicioMembresia();
             LocalDate fin = usuario.getFinMembresia();
 
             if (inicio != null && fin != null) {
-                // activo si hoy está entre inicio y fin inclusive
                 if (( !hoy.isBefore(inicio) ) && ( !hoy.isAfter(fin) )) {
                     usuario.setEstado("ACTIVO");
                     return;
@@ -351,7 +346,6 @@ public class usuarioServiceImpl implements usuarioService {
                     return;
                 }
             } else {
-                // sin fechas -> inactivo
                 usuario.setEstado("INACTIVO");
                 return;
             }

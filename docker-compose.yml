@@ -50,12 +50,11 @@ services:
     depends_on:
       - kafka
       - postgres
+    env_file:
+      - .env
     environment:
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - SPRING_PROFILES_ACTIVE=dev
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/usuariosdb
-      - SPRING_DATASOURCE_USERNAME=gymfex
-      - SPRING_DATASOURCE_PASSWORD=gymfex
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.PostgreSQLDialect
     ports:
@@ -83,6 +82,7 @@ services:
     volumes:
       - sonarqube_data:/opt/sonarqube/data
       - sonarqube_extensions:/opt/sonarqube/extensions
+
 
 volumes:
   zk_data:
