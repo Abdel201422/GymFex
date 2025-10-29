@@ -20,7 +20,7 @@ GymFex es una plataforma modular basada en microservicios para la gestión de so
 ├─ gymfex-common-events/       # DTOs compartidos para eventos Kafka
 ├─ docker-compose.yml          # Orquestación de servicios
 ├─ docker/                     # Scripts y configuración adicional
-└─ README.md                   # Este archivo
+└─ README.md                   
 ```
 
 ---
@@ -65,12 +65,12 @@ Configura las siguientes variables de entorno antes de ejecutar los servicios.
 🔐 Seguridad y JWT
 
 JWT_SECRET — Clave secreta para firmar tokens JWT.
-JWT_EXPIRATION_MS — Tiempo de expiración del token en milisegundos (ej. 9000000).
+JWT_EXPIRATION_MS — Tiempo de expiración del token en milisegundos.
 
 🗄️ Base de datos (Postgres)
 
 DB_URL — URL JDBC de conexión (ej. jdbc:postgresql://postgres-db:5432/usuariosdb)
-DB_USERNAME — Usuario de la base de datos (ej. gymfex)
+DB_USERNAME — Usuario de la base de datos.
 DB_PASSWORD — Contraseña de la base de datos.
 
 📬 SMTP (notificaciones-service)
